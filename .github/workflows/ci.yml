@@ -14,15 +14,15 @@ on:
     branches: [main]
 
 permissions:
-i  id-token: write   # required for OIDC -> AWS
+  id-token: write
   contents: read
-  security-events: write  # required for Trivy SARIF upload to GH Security tab
-
+  security-events: write
 
 env:
   AWS_REGION: "us-east-1"
   ECR_REGISTRY: "390990889317.dkr.ecr.us-east-1.amazonaws.com"
   ROLE_ARN: "arn:aws:iam::390990889317:role/devops-platform-github-actions-ci"
+
 jobs:
   build-scan-push:
     runs-on: ubuntu-latest
@@ -70,7 +70,7 @@ jobs:
           format: 'sarif'
           output: 'trivy-results-${{ matrix.service.name }}.sarif'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0'   # set to '1' once you've triaged initial findings, to hard-fail builds
+          exit-code: '0'
 
       - name: Upload Trivy results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
@@ -82,5 +82,4 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           docker push ${{ env.ECR_REGISTRY }}/devops-platform/${{ matrix.service.name }}:${{ steps.vars.outputs.tag }}
-
           docker push ${{ env.ECR_REGISTRY }}/devops-platform/${{ matrix.service.name }}:latest
