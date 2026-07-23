@@ -74,7 +74,7 @@ jobs:
             ${{ matrix.service.path }}
 
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.ECR_REGISTRY }}/devops-platform/${{ matrix.service.name }}:${{ steps.vars.outputs.tag }}
           format: 'sarif'
