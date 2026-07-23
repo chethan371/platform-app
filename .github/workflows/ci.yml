@@ -20,7 +20,7 @@ permissions:
 env:
   AWS_REGION:"us-east-1"
   ECR_REGISTRY:"390990889317.dkr.ecr.us-east-1.amazonaws.com"
-  ROLE_ARN: "arn:aws:iam::390990889317:role/devops-platform-github-actions-ci"
+  ROLE_ARN:"arn:aws:iam::390990889317:role/devops-platform-github-actions-ci"
 jobs:
   build-scan-push:
     runs-on: ubuntu-latest
