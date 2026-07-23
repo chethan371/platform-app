@@ -84,4 +84,5 @@ jobs:
           docker push ${{ env.ECR_REGISTRY }}/devops-platform/${{ matrix.service.name }}:${{ steps.vars.outputs.tag }}
           docker push ${{ env.ECR_REGISTRY }}/devops-platform/${{ matrix.service.name }}:latest
 
-        
+       
+
