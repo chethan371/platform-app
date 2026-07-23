@@ -1,0 +1,83 @@
+name: CI - Build, Scan, Push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/frontend/**'
+      - 'src/cartservice/**'
+      - 'src/checkoutservice/**'
+      - 'src/productcatalogservice/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [main]
+
+permissions:
+  id-token: write   # required for OIDC -> AWS
+  contents: read
+  security-events: write  # required for Trivy SARIF upload to GH Security tab
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY:390990889317.dkr.ecr.us-east-1.amazonaws.com
+  ROLE_ARN: arn:aws:iam::390990889317:role/devops-platform-github-actions-ci
+jobs:
+  build-scan-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: frontend
+            path: src/frontend
+          - name: cartservice
+            path: src/cartservice/src
+          - name: checkoutservice
+            path: src/checkoutservice
+          - name: productcatalogservice
+            path: src/productcatalogservice
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: vars
+        run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        run: |
+          docker build \
+            -t ${{ env.ECR_REGISTRY }}/devops-platform/${{ matrix.service.name }}:${{ steps.vars.outputs.tag }} \
+            -t ${{ env.ECR_REGISTRY }}/devops-platform/${{ matrix.service.name }}:latest \
+            ${{ matrix.service.path }}
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/devops-platform/${{ matrix.service.name }}:${{ steps.vars.outputs.tag }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.service.name }}.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'   # set to '1' once you've triaged initial findings, to hard-fail builds
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.service.name }}.sarif'
+
+      - name: Push image to ECR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker push ${{ env.ECR_REGISTRY }}/devops-platform/${{ matrix.service.name }}:${{ steps.vars.outputs.tag }}
+          docker push ${{ env.ECR_REGISTRY }}/devops-platform/${{ matrix.service.name }}:latest
